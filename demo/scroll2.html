@@ -1,0 +1,174 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>图片与JavaScript配合做出个性滚动条</title>
+<style type="text/css">
+* { margin:0; padding:0; }
+body { margin:20px 0 400px 20px; font:12px Arial; }
+h1 { font-size:14px; }
+ol { margin:20px; line-height:160%; }
+#out {
+ position:relative;
+ width:500px;
+ height:300px;
+ margin:100px 0 100px 80px;
+ border:1px solid #369;
+ overflow:hidden;
+}
+#content {
+ width:520px;
+ height:100%;
+ overflow:auto;
+ -moz-user-select:none;
+}
+#scrollBar,#scrollBarHandle,.scroll_bar_top,.scroll_bar_top_a,.scroll_bar_bottom,.scroll_bar_bottom_a {
+ background-image:url(http://www.codefans.net/jscss/demoimg/200910/un_bg_scrollBar.gif);
+}
+#scrollBar {
+ position:absolute;
+ top:0;
+ right:0;
+ z-index:9;
+ width:14px;
+ height:100%;
+ background-repeat:repeat-y;
+ background-position:-42px 0;
+ float:left;
+}
+#scrollBarTop,#scrollBarHandle,#scrollBarBottom {
+ position:absolute;
+ left:0;
+ cursor:default;
+}
+#scrollBarTop,#scrollBarBottom {
+ width:100%;
+ height:14px;
+ color:#fff;
+ text-align:center;
+}
+#scrollBarTop { top:0; }
+#scrollBarBottom { bottom:0; }
+#scrollBarHandle { width:100%; background-repeat:repeat-y; background-position:-28px 0; }
+.scroll_bar_top { background-position:0 0; }
+.scroll_bar_top_a { background-position:-14px 0; }
+.scroll_bar_bottom { background-position:-56px 0; }
+.scroll_bar_bottom_a { background-position:-70px 0; }
+</style>
+</head>
+<body>
+<div id="out">
+  <div id="content">
+    fsdfs<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />11111111<br />fsdfs<br />
+  </div>
+  <div id="scrollBar">
+   <div id="scrollBarTop" class="scroll_bar_top"></div>
+    <div id="scrollBarHandle"></div>
+    <div id="scrollBarBottom" class="scroll_bar_bottom"></div>
+  </div>
+</div>
+<script>
+var ximen = {
+ $:function(o){ return document.getElementByIdx_x(o); },
+ getStyle:function(o) { return o.currentStyle||document.defaultView.getComputedStyle(o,null); },
+ getOffset:function(o) {
+  var t = o.offsetTop,h = o.offsetHeight;
+  while(o = o.offsetParent) { t += o.offsetTop; }
+  return { top:t, height:h };
+ },
+ bind:function(o,eType,fn) {
+  if(o.addEventListener) { o.addEventListener(eType,fn,false); }
+  else if(o.attachEvent) { o.attachEvent("on" + eType,fn); }
+  else { o["on" + eType] = fn; }
+ },
+ unbind:function(o,eType,fn) {
+  if(o.removeEventListener) { o.removeEventListener(eType,fn,false); }
+  else if(o.detachEvent) { o.detachEvent("on" + eType,fn); }
+  else { o["on" + eType] = fn; }
+ },
+ stopPropagate:function(e) {
+  if(e && e.stopPropagation) { e.stopPropagation(); }
+  else { window.event.cancelBubble = true; }
+  return false;
+ },
+ stopDefault:function(e) {
+  e = e || window.event;
+  e.stopPropagation && (e.preventDefault(),e.stopPropagation()) || (e.cancelBubble = true,e.returnValue = false);
+ }
+};
+(function(){
+ var myScrollDown,myScrollUp,scrollBarMouseDown,scrollBarMouseUp,relY,
+  out = ximen.$("out"),
+  content = ximen.$("content"),
+  scrollBar = ximen.$("scrollBar"),
+  scrollBarTop = ximen.$("scrollBarTop"),
+  scrollBarHandle = ximen.$("scrollBarHandle"),
+  scrollBarBottom = ximen.$("scrollBarBottom"),
+  scrollBarUpHeight = parseInt(ximen.getStyle(scrollBarTop).height),
+  scrollBarBottomHeight = parseInt(ximen.getStyle(scrollBarBottom).height),
+  contentScrollHeight = content.scrollHeight,//将content.scrollHeight赋一次值,解决IE6下scrollHeight需调用两次的bug
+  scrollBarHandleHeight = parseInt(content.offsetHeight/content.scrollHeight * (scrollBar.offsetHeight - scrollBarUpHeight - scrollBarBottomHeight)),
+  setScrollBarHandle = function() {//当内容超多时设置拖拽条子的最小高度
+   scrollBarHandle.style.top = scrollBarUpHeight + "px";
+   if(scrollBarHandleHeight > 15) { scrollBarHandle.style.height = scrollBarHandleHeight + "px"; }
+   else { scrollBarHandleHeight = 15; scrollBarHandle.style.height = "15px"; }
+  },
+  clearAllInterval = function() { clearInterval(myScrollDown); clearInterval(myScrollUp); clearInterval(scrollBarMouseDown); },
+  forMousemove = function(e) {
+   var e = e || window.event;
+   content.scrollTop = (e.clientY - relY - scrollBarUpHeight)/(scrollBar.offsetHeight - scrollBarHandleHeight - scrollBarUpHeight - scrollBarBottomHeight)*(content.scrollHeight - content.offsetHeight);
+  },
+  forMouseDown = function(event){
+   var et = event.target || event.srcElement;
+   relY = event.clientY - et.offsetTop;
+   ximen.bind(document,"mousemove",forMousemove);
+  },
+  scrollDir = function(e) {
+   var e = e || window.event,eDir;     //设置滚轮事件,e.wheelDelta与e.detail分别兼容IE、W3C，根据返回值的正负来判断滚动方向
+   if(e.wheelDelta) { eDir = e.wheelDelta/120; }
+   else if(e.detail) { eDir = -e.detail/3; }
+   if(eDir > 0) { content.scrollTop -= 80; } //步长设80像素a比较接近window滚动条的滚动速度
+   else { content.scrollTop += 80; }
+   ximen.stopDefault(e);
+  },
+  scrollBarClick = function(e) {
+   var e = e || window.event,
+    mStep = scrollBar.offsetHeight,
+    documentScrollTop = document.documentElement.scrollTop,
+    hOffset = ximen.getOffset(scrollBarHandle);
+   if(documentScrollTop + e.clientY < hOffset.top) { scrollBarMouseDown = setInterval(function(){ content.scrollTop -= 15; },10); }
+   else if(documentScrollTop + e.clientY > hOffset.top + hOffset.height) { scrollBarMouseDown = setInterval(function(){ content.scrollTop += 15; },10); }
+  };
+ setScrollBarHandle();
+ ximen.bind(content,"scroll",function(){
+  scrollBarHandle.style.top = content.scrollTop/(content.scrollHeight - content.offsetHeight) * (scrollBar.offsetHeight - scrollBarHandleHeight - scrollBarUpHeight - scrollBarBottomHeight) + scrollBarUpHeight + "px";
+ });
+ ximen.bind(scrollBarBottom,"mousedown",function(){ myScrollDown = setInterval(function(){ content.scrollTop += 15; },10); });
+ ximen.bind(scrollBarTop,"mousedown",function(){ myScrollUp = setInterval(function(){ content.scrollTop -= 15; },10); });
+ ximen.bind(scrollBarBottom,"mouseup",clearAllInterval);
+ ximen.bind(scrollBarBottom,"mouseout",clearAllInterval);
+ ximen.bind(scrollBarTop,"mouseup",clearAllInterval);
+ ximen.bind(scrollBarTop,"mouseout",clearAllInterval);
+ ximen.bind(scrollBarHandle,"mousedown",forMouseDown);
+ ximen.bind(document,"mouseup",function(){
+  ximen.unbind(document,"mousemove",forMousemove);
+  ximen.unbind(scrollBarHandle,"mousemove",forMousemove);
+ });
+ ximen.bind(out,"selectstart",function(){ return false; });
+ ximen.bind(out,"select",function(){ document.selection.empty(); });
+ ximen.bind(out,"mousewheel",scrollDir);
+ ximen.bind(out,"DOMMouseScroll",scrollDir);
+ ximen.bind(scrollBar,"mousedown",scrollBarClick);
+ ximen.bind(scrollBar,"mouseup",clearAllInterval);
+ ximen.bind(scrollBarTop,"click",function(event){ ximen.stopPropagate(event); });
+ ximen.bind(scrollBarTop,"mousedown",function(){ scrollBarTop.className = "scroll_bar_top_a"; });
+ ximen.bind(scrollBarTop,"mouseup",function(){ scrollBarTop.className = "scroll_bar_top"; });
+ ximen.bind(scrollBarTop,"mouseout",function(){ scrollBarTop.className = "scroll_bar_top"; });
+ ximen.bind(scrollBarBottom,"click",function(event){ ximen.stopPropagate(event); });
+ ximen.bind(scrollBarBottom,"mousedown",function(){ scrollBarBottom.className = "scroll_bar_bottom_a"; });
+ ximen.bind(scrollBarBottom,"mouseup",function(){ scrollBarBottom.className = "scroll_bar_bottom"; });
+ ximen.bind(scrollBarBottom,"mouseout",function(){ scrollBarBottom.className = "scroll_bar_bottom"; });
+})();
+</script>
+</body>
+</html
